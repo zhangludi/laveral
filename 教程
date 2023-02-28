@@ -1,0 +1,280 @@
+https://blog.csdn.net/dmguying/article/details/88066548
+
+上次我们学习了laravel-admin的安装。今天我们来说说laravel-admin的使用。
+
+创建新菜单
+这个比较简单直接上图：
+
+然后就生成了会员管理的菜单：
+
+
+创建控制器
+菜单创建好之后，url路径我们也定好了，接下来就是创建资源控制器了，使用如下命令：
+
+```
+
+// Mac os、 Linux
+php artisan admin:make UserController --model=App\\User
+
+// Windows
+php artisan admin:make UserController --model=App\User
+
+php artisan admin:make MemberController --model=App\Models\Member
+php73  artisan admin:make ShopController --model=App\\Models\\Shop
+
+```
+
+后面的 --model 告诉此控制器使用哪一个模型。我们的Member 模型是提前创建好的。创建好的控制器是一个资源控制器，如下：
+
+```
+<?php
+namespace App\Admin\Controllers;
+
+use App\Models\Member;
+use App\Http\Controllers\Controller;
+use Encore\Admin\Controllers\HasResourceActions;
+use Encore\Admin\Form;
+use Encore\Admin\Grid;
+use Encore\Admin\Layout\Content;
+use Encore\Admin\Show;
+
+class MemberController extends Controller
+{
+    use HasResourceActions;
+
+    /**
+     * Index interface.
+     *
+     * @param Content $content
+     * @return Content
+     */
+    public function index(Content $content)
+    {
+        return $content
+            ->header('Index')
+            ->description('description')
+            ->body($this->grid());
+    }
+
+    /**
+     * Show interface.
+     *
+     * @param mixed $id
+     * @param Content $content
+     * @return Content
+     */
+    public function show($id, Content $content)
+    {
+        return $content
+            ->header('Detail')
+            ->description('description')
+            ->body($this->detail($id));
+    }
+
+    /**
+     * Edit interface.
+     *
+     * @param mixed $id
+     * @param Content $content
+     * @return Content
+     */
+    public function edit($id, Content $content)
+    {
+        return $content
+            ->header('Edit')
+            ->description('description')
+            ->body($this->form()->edit($id));
+    }
+
+    /**
+     * Create interface.
+     *
+     * @param Content $content
+     * @return Content
+     */
+    public function create(Content $content)
+    {
+        return $content
+            ->header('Create')
+            ->description('description')
+            ->body($this->form());
+    }
+
+    /**
+     * Make a grid builder.
+     *
+     * @return Grid
+     */
+    protected function grid()
+    {
+        $grid = new Grid(new Member);
+        return $grid;
+    }
+
+    /**
+     * Make a show builder.
+     *
+     * @param mixed $id
+     * @return Show
+     */
+    protected function detail($id)
+    {
+        $show = new Show(Member::findOrFail($id));
+        
+        return $show;
+    }
+
+    /**
+     * Make a form builder.
+     *
+     * @return Form
+     */
+    protected function form()
+    {
+        $form = new Form(new Member);
+        
+        return $form;
+    }
+}
+
+```
+
+其中最重要的方法是 grid() 和 form() ，分别对应数据列表（表格）和数据表单的内容。
+
+点击数据列表然后有显示，显示的页面内容在控制器的detail方法来定，如下：
+
+
+
+创建好之后，需要在Admin目录下的routes.php里面添加路由信息，如下：
+
+```
+
+<?php
+
+use Illuminate\Routing\Router;
+
+Admin::registerAuthRoutes();
+
+Route::group([
+    'prefix'        => config('admin.route.prefix'),
+    'namespace'     => config('admin.route.namespace'),
+    'middleware'    => config('admin.route.middleware'),
+], function (Router $router) {
+    $router->get('/', 'HomeController@index');
+    
+    /**这里是自己添加的新资源路由***/
+    $router->resource('member', 'MemberController');
+});
+
+```
+
+生成模型表格
+1.创建模型
+
+使用 如下命令创建模型(后面的 -m 代表生成迁移文件，根据自己的需要而来)
+```
+php artisan make:model Models\Member -m
+```
+1
+在迁移文件里面定义数据表的字段、迁移、添加测试数据，这里不在赘述，具体数据库迁移见下面的文章：
+https://blog.csdn.net/dmguying/article/details/87654279
+
+2.在控制器中 index() 是模型表格页面的入口，Admin::content 则可以在方法内设置本页面的内容。header 和 description 是页面的主、副标题，可按需设置。另外可看到本页面body的内容由 $this->grid() 提供。
+
+
+```
+public function index()
+    {
+        return Admin::content(function (Content $content) {
+
+            $content->header('会员管理');
+            $content->description('会员列表');
+            $content->body($this->grid());
+        });
+    }
+	
+```
+
+3、grid() 方法用于构建基于数据模型的数据表格。首先要将 MemberModel 改为真实的数据模型，然后就可以使用 $grid 构建表单。
+
+每个$grid代表一列数据，指向的是数据表字段名，括号内的是本列的标题名称。若括号内不填标题名称，则自动使用数据表字段名的字符串代替,如下：
+
+```
+   protected function grid()
+    {
+        $grid = new Grid(new Member);
+        // 直接通过字段名`name`添加列
+        $grid->name('用户名');
+        //效果和上面一样
+        $grid->column('phone', '手机号');
+        $grid->email('邮箱');
+//        //若需要经过复杂逻辑，可使用display方法修改输出
+        $grid->sex('性别')->display(function ($sex) {
+            $ret = '';
+            if ($sex == 1){
+                $ret = '帅哥';
+            }elseif($sex == 0){
+                $ret = '美女';
+            }else{
+                $ret = '保密';
+            }
+            return $ret;
+        });
+        //处理图片有专门的
+        //http://m.laravel.cc 这个是站点的域名，显示的时候自动把数据表的字段连接起来
+        $grid->head_image('头像')->image('http://m.laravel.cc', 30, 30);
+        return $grid;
+    }
+```
+
+4、数据表格最后一列默认是操作列，包含编辑按钮与删除按钮。如果需要自定义操作列，则可以把默认的操作列禁用，再进行自定义。
+
+
+```
+ //禁用按钮，自己定义 $grid->disableActions();
+ //在原来的基础上修改
+$grid->actions(function ($actions) {
+     $id = $actions->getKey();
+
+     // prepend一个操作
+     $str = '<a href="'.$id.'">自定义操作2<i class="fa fa-paper-plane"></i></a>';
+     $actions->prepend($str);
+ });
+ 
+```
+
+
+创建模型表单
+控制器内的 created() 和 edit() 分别对应着模型表单的新增与编辑操作。并且新增、编辑表单共用控制器内的 form() 进行表单构建。
+修改form()来构建表单内容：
+$form指向的是表单控件类型（text是文本域，radio是单选框等），方法内第一个参数是数据表字段名，第二个参数是字段显示名称。如下：
+
+```
+ protected function form()
+    {
+        $form = new Form(new Member);
+
+            // 显示记录id
+            $form->display('id', 'ID');
+
+            // 添加text类型的input框
+            $form->text('name', '姓名');
+            $form->text('email', '邮箱');
+            $form->text('phone','手机号')->placeholder('请输入手机号');
+            $form->password('password','密码');
+           $form->datetime('created_at','创建时间')->default(date('Y-m-d'));
+            $form->image('head_image','头像');
+            return $form;
+    }
+
+```
+
+这里注意上传图片时配置相应的图片上传路径等相关操作，具体参考官网文档：
+https://laravel-admin.org/docs/zh/model-form-upload。
+
+总结
+1、实际开发过程中一般是先把数据表确定好，然后再建模型以及控制器，这样在创建控制器之后laravel-admin会自动把控制器中的form和grid根据定义的字段类型，填充出来，需要的时候只做部分修改即可。
+2、laravel-admin还可以更好ui界面，按照规则更换自己喜欢的页面风格，具体使用见官方文档：https://laravel-admin.org/docs/zh。
+————————————————
+版权声明：本文为CSDN博主「草原孤鹰」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/dmguying/article/details/88066548
