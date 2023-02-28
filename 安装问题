@@ -1,0 +1,29 @@
+https://stackoverflow.com/questions/42244541/laravel-migration-error-syntax-error-or-access-violation-1071-specified-key-wa
+
+Laravel Migration Error: Syntax error or access violation: 1071 Specified key was too long; max key length is 767 bytes
+解决：
+1.
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Bootstrap any application services.
+ *
+ * @return void
+ */
+public function boot()
+{
+    Schema::defaultStringLength(191);
+}
+
+2.
+I don't know why the above solution and the official solution which is adding
+
+Schema::defaultStringLength(191);
+in AppServiceProvider didn't work for me. What worked for was editing the database.php file in config folder. Just edit
+
+'charset' => 'utf8mb4',
+'collation' => 'utf8mb4_unicode_ci',
+to
+
+'charset' => 'utf8',
+'collation' => 'utf8_unicode_ci',
